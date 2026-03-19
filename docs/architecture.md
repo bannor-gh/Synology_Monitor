@@ -12,8 +12,9 @@ it → a Hubitat Groovy driver polls and publishes attributes.
 - Report real-time CPU usage, RAM usage, and per-volume disk usage from the
   Synology NAS.
 - Expose the data via a local HTTP API so Hubitat can poll it.
-- Display a `systemSummary` tile and individual numeric attributes on a Hubitat
-  dashboard.
+- Display a `systemSummary` tile on a Hubitat dashboard showing CPU, RAM, and
+  each volume with a green/yellow/red status dot and usage details.
+- Expose individual numeric attributes for use in Rule Machine automations.
 - Require no cloud services and no Synology DSM credentials — everything reads
   directly from the Linux `/proc` filesystem.
 
@@ -323,8 +324,14 @@ metadata {
 }
 
 preferences {
-    input name: "flaskBaseUrl", type: "text", title: "Flask API Base URL (e.g., http://192.168.10.175:5051)", required: true
-    input name: "refreshInterval", type: "number", title: "Refresh interval (minutes)", defaultValue: 5, required: true
+    input name: "flaskBaseUrl",     type: "text",   title: "Flask API Base URL (e.g., http://192.168.10.175:5051)", required: true
+    input name: "refreshInterval",  type: "number", title: "Refresh interval (minutes)", defaultValue: 5, required: true
+    input name: "cpuWarn",          type: "number", title: "CPU warn threshold (%)",     defaultValue: 50, required: true
+    input name: "cpuCrit",          type: "number", title: "CPU critical threshold (%)", defaultValue: 80, required: true
+    input name: "memWarn",          type: "number", title: "Memory warn threshold (%)",     defaultValue: 70, required: true
+    input name: "memCrit",          type: "number", title: "Memory critical threshold (%)", defaultValue: 85, required: true
+    input name: "diskWarn",         type: "number", title: "Disk warn threshold (%)",     defaultValue: 70, required: true
+    input name: "diskCrit",         type: "number", title: "Disk critical threshold (%)", defaultValue: 85, required: true
 }
 
 def installed() {
@@ -413,23 +420,35 @@ private void parseSynologyData(json) {
     }
     sendEvent(name: "lastUpdate", value: ts)
 
-    // Summary tile
+    // Summary tile with colored status dots
+    // dot() returns a green/yellow/red ● based on warn/crit thresholds
     try {
-        def cpuVal  = json.cpu?.percent ?: 0
-        def memVal  = json.memory?.percent ?: 0
-        def memUsed = json.memory?.used_mb ?: 0
+        def cpuVal  = (json.cpu?.percent  ?: 0) as BigDecimal
+        def memVal  = (json.memory?.percent ?: 0) as BigDecimal
+        def memUsed = json.memory?.used_mb  ?: 0
         def memTot  = json.memory?.total_mb ?: 0
-        def v1      = json.storage?.size() > 0 ? json.storage[0] : null
-        def diskLine = v1 ? "${v1.path}: ${v1.used_gb} / ${v1.total_gb} GB (${v1.percent}%)" : "N/A"
 
-        def summary = "CPU: ${cpuVal}%<br>" +
-                      "RAM: ${memUsed} / ${memTot} MB (${memVal}%)<br>" +
-                      "Disk ${diskLine}<br>" +
-                      "Updated: ${ts}"
-        sendEvent(name: "systemSummary", value: summary)
+        def cW = (cpuWarn  ?: 50) as BigDecimal; def cC = (cpuCrit  ?: 80) as BigDecimal
+        def mW = (memWarn  ?: 70) as BigDecimal; def mC = (memCrit  ?: 85) as BigDecimal
+        def dW = (diskWarn ?: 70) as BigDecimal; def dC = (diskCrit ?: 85) as BigDecimal
+
+        def lines = "<table style=\"border-collapse:collapse; width:100%; font-size:0.9em;\">"
+        lines += "<tr><td>${dot(cpuVal,cW,cC)}</td><td>CPU</td><td style=\"text-align:right;\">${cpuVal}%</td></tr>"
+        lines += "<tr><td>${dot(memVal,mW,mC)}</td><td>RAM</td><td style=\"text-align:right;\">${memVal}% (${memUsed}/${memTot} MB)</td></tr>"
+        volumes?.each { vol ->
+            def pct = (vol.percent ?: 0) as BigDecimal
+            lines += "<tr><td>${dot(pct,dW,dC)}</td><td>${vol.path}</td><td style=\"text-align:right;\">${pct}% (${vol.used_gb}/${vol.total_gb} GB)</td></tr>"
+        }
+        lines += "</table><div style=\"font-size:0.75em; opacity:0.6;\">Updated ${ts}</div>"
+        sendEvent(name: "systemSummary", value: lines)
     } catch (e) {
         log.warn "Failed to build systemSummary: ${e.message}"
     }
+}
+
+private String dot(BigDecimal value, BigDecimal warn, BigDecimal crit) {
+    def color = value >= crit ? "#e74c3c" : value >= warn ? "#f39c12" : "#2ecc71"
+    return "<span style=\"color:${color}; font-size:1.2em;\">&#11044;</span>"
 }
 ```
 
@@ -570,13 +589,14 @@ In Synology Task Scheduler, create a **User-defined script** task:
 2. **Devices** → **Add Virtual Device** → select "Synology NAS Monitor"
 3. Set **Flask API Base URL** to `http://192.168.10.175:5051`
 4. Set **Refresh interval** (default 5 minutes)
-5. Click **Save Preferences** — the auto-refresh schedule activates immediately
+5. Optionally adjust warn/critical thresholds (defaults: CPU 50/80%, RAM 70/85%, Disk 70/85%)
+6. Click **Save Preferences** — the auto-refresh schedule activates immediately
 
 ### 8. Verify
 
 - Check `GET http://192.168.10.175:5051/synology` returns valid JSON
 - On the Hubitat device page, click **fetchSynologyData** and confirm attributes populate
-- Add `systemSummary` as an HTML tile on a Hubitat dashboard
+- Add an **Attribute** tile to a Hubitat dashboard, select the Synology NAS Monitor device, attribute `systemSummary` — renders as an HTML health summary with colored dots
 
 ---
 
@@ -589,3 +609,5 @@ In Synology Task Scheduler, create a **User-defined script** task:
 | Separate repo | Yes | Different lifecycle, different deployment target, cleaner ownership |
 | Runner | New runner (`synology-monitor`) | Allows independent deploy pipelines per project |
 | Refresh granularity | 5 minutes (configurable) | Matches Generac cadence; NAS metrics don't change faster than this |
+| Dashboard tile | `systemSummary` HTML attribute tile | Single tile shows all metrics at a glance; colored dots (green/yellow/red) give instant health status without opening the device page |
+| Dot thresholds | Configurable driver preferences | Different environments may have different normal baselines; hard-coded thresholds would require code changes to tune |

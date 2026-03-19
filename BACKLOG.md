@@ -25,13 +25,17 @@
 6. **Install Hubitat driver** — In Hubitat → Drivers Code → New Driver → paste `synology_hubitat_driver.groovy` → Save.
    - Add Virtual Device → select "Synology NAS Monitor"
    - Set Flask API Base URL to `http://192.168.10.175:5051`
+   - Optionally adjust warn/critical thresholds (defaults: CPU 50/80%, RAM 70/85%, Disk 70/85%)
    - Save Preferences — auto-refresh schedule activates immediately
 
 7. **Verify end-to-end** — Confirm the full data pipeline is working:
    - `GET http://192.168.10.175:5051/synology` returns valid JSON
    - Click **fetchSynologyData** on Hubitat device page and confirm all attributes populate
-   - Add `systemSummary` as an HTML tile on a Hubitat dashboard
+   - Add an **Attribute** tile to a Hubitat dashboard → select Synology NAS Monitor device → attribute `systemSummary`
+   - Confirm colored dots appear and values look correct
 
 ## Done
 
 - **Repo created and seeded** ✅ Done 2026-03-19 — `Synology_Monitor` repo created on GitHub, all files committed from design doc: `synology_monitor.py`, `app.py`, `Dockerfile`, `requirements.txt`, `synology_hubitat_driver.groovy`, `.github/workflows/deploy.yml`, `docs/architecture.md`.
+
+- **Color status dots on dashboard tile** ✅ Done 2026-03-19 — `systemSummary` renders an HTML table with a green/yellow/red dot per metric (CPU, RAM, each volume). Thresholds are configurable driver preferences; defaults are CPU 50/80%, RAM 70/85%, Disk 70/85%.
