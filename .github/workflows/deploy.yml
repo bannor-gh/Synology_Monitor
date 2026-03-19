@@ -1,0 +1,22 @@
+name: Deploy to Synology
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: synology-monitor
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Deploy files to Synology Monitor
+        run: |
+          rsync -av --chmod=Du=rwx,Dg=rx,Do=rx,Fu=rw,Fg=r,Fo=r \
+                    --exclude='synology_data.json' \
+                    --exclude='synology_monitor.log' \
+                    --exclude='.git/' \
+                    $GITHUB_WORKSPACE/ "/synology-monitor/"
+          chmod -R 777 "/synology-monitor/" || true
