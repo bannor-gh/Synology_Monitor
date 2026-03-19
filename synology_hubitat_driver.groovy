@@ -23,8 +23,14 @@ metadata {
 }
 
 preferences {
-    input name: "flaskBaseUrl", type: "text", title: "Flask API Base URL (e.g., http://192.168.10.175:5051)", required: true
-    input name: "refreshInterval", type: "number", title: "Refresh interval (minutes)", defaultValue: 5, required: true
+    input name: "flaskBaseUrl",     type: "text",   title: "Flask API Base URL (e.g., http://192.168.10.175:5051)", required: true
+    input name: "refreshInterval",  type: "number", title: "Refresh interval (minutes)", defaultValue: 5, required: true
+    input name: "cpuWarn",          type: "number", title: "CPU warn threshold (%)",     defaultValue: 50, required: true
+    input name: "cpuCrit",          type: "number", title: "CPU critical threshold (%)", defaultValue: 80, required: true
+    input name: "memWarn",          type: "number", title: "Memory warn threshold (%)",     defaultValue: 70, required: true
+    input name: "memCrit",          type: "number", title: "Memory critical threshold (%)", defaultValue: 85, required: true
+    input name: "diskWarn",         type: "number", title: "Disk warn threshold (%)",     defaultValue: 70, required: true
+    input name: "diskCrit",         type: "number", title: "Disk critical threshold (%)", defaultValue: 85, required: true
 }
 
 def installed() {
@@ -62,6 +68,11 @@ def fetchSynologyData() {
     } catch (e) {
         log.error "Error fetching Synology data: ${e.message}"
     }
+}
+
+private String dot(BigDecimal value, BigDecimal warn, BigDecimal crit) {
+    def color = value >= crit ? "#e74c3c" : value >= warn ? "#f39c12" : "#2ecc71"
+    return "<span style=\"color:${color}; font-size:1.2em;\">&#11044;</span>"
 }
 
 private void parseSynologyData(json) {
@@ -107,26 +118,57 @@ private void parseSynologyData(json) {
     def ts = json.timestamp ?: "unknown"
     try {
         def dateObj = Date.parse("yyyy-MM-dd'T'HH:mm:ssX", ts)
-        ts = dateObj.format("yyyy-MM-dd HH:mm:ss", location.timeZone)
+        ts = dateObj.format("MM/dd HH:mm", location.timeZone)
     } catch (e) {
         log.warn "Could not parse timestamp: ${ts}"
     }
     sendEvent(name: "lastUpdate", value: ts)
 
-    // Summary tile
+    // Summary tile with colored status dots
     try {
-        def cpuVal  = json.cpu?.percent ?: 0
-        def memVal  = json.memory?.percent ?: 0
-        def memUsed = json.memory?.used_mb ?: 0
+        def cpuVal  = (json.cpu?.percent  ?: 0) as BigDecimal
+        def memVal  = (json.memory?.percent ?: 0) as BigDecimal
+        def memUsed = json.memory?.used_mb  ?: 0
         def memTot  = json.memory?.total_mb ?: 0
-        def v1      = json.storage?.size() > 0 ? json.storage[0] : null
-        def diskLine = v1 ? "${v1.path}: ${v1.used_gb} / ${v1.total_gb} GB (${v1.percent}%)" : "N/A"
 
-        def summary = "CPU: ${cpuVal}%<br>" +
-                      "RAM: ${memUsed} / ${memTot} MB (${memVal}%)<br>" +
-                      "Disk ${diskLine}<br>" +
-                      "Updated: ${ts}"
-        sendEvent(name: "systemSummary", value: summary)
+        def cW = (cpuWarn  ?: 50) as BigDecimal
+        def cC = (cpuCrit  ?: 80) as BigDecimal
+        def mW = (memWarn  ?: 70) as BigDecimal
+        def mC = (memCrit  ?: 85) as BigDecimal
+        def dW = (diskWarn ?: 70) as BigDecimal
+        def dC = (diskCrit ?: 85) as BigDecimal
+
+        def lines = "<table style=\"border-collapse:collapse; width:100%; font-size:0.9em;\">"
+
+        // CPU row
+        lines += "<tr>" +
+                 "<td style=\"padding:2px 6px;\">${dot(cpuVal, cW, cC)}</td>" +
+                 "<td style=\"padding:2px 4px;\">CPU</td>" +
+                 "<td style=\"padding:2px 4px; text-align:right;\">${cpuVal}%</td>" +
+                 "</tr>"
+
+        // Memory row
+        lines += "<tr>" +
+                 "<td style=\"padding:2px 6px;\">${dot(memVal, mW, mC)}</td>" +
+                 "<td style=\"padding:2px 4px;\">RAM</td>" +
+                 "<td style=\"padding:2px 4px; text-align:right;\">${memVal}% &nbsp;<span style=\"font-size:0.85em; opacity:0.75;\">${memUsed}/${memTot} MB</span></td>" +
+                 "</tr>"
+
+        // Storage rows
+        volumes?.eachWithIndex { vol, i ->
+            def pct  = (vol.percent ?: 0) as BigDecimal
+            def label = vol.path ?: "vol${i+1}"
+            lines += "<tr>" +
+                     "<td style=\"padding:2px 6px;\">${dot(pct, dW, dC)}</td>" +
+                     "<td style=\"padding:2px 4px;\">${label}</td>" +
+                     "<td style=\"padding:2px 4px; text-align:right;\">${pct}% &nbsp;<span style=\"font-size:0.85em; opacity:0.75;\">${vol.used_gb}/${vol.total_gb} GB</span></td>" +
+                     "</tr>"
+        }
+
+        lines += "</table>"
+        lines += "<div style=\"font-size:0.75em; opacity:0.6; margin-top:4px;\">Updated ${ts}</div>"
+
+        sendEvent(name: "systemSummary", value: lines)
     } catch (e) {
         log.warn "Failed to build systemSummary: ${e.message}"
     }
