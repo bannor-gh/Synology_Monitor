@@ -2,40 +2,29 @@
 
 ## Open
 
-1. **Register self-hosted runner** — Register a new runner in Synology Container Manager using `myoung34/github-runner:latest`.
-   - Runner name: `github-runner-synology`, label: `synology-monitor`
-   - Volume mount: `/volume1/Synology Monitor` → `/synology-monitor/` (use no-space path inside container)
-   - `deploy.yml` already targets `runs-on: synology-monitor`
-   - See `docs/architecture.md` → Setup Plan → Step 2 for the full `docker run` command
-
-2. **Create NAS working directory** — Create `/volume1/Synology Monitor/` on the NAS via File Station or SSH before first deploy.
-
-3. **First deploy** — Push to `main` triggers CI; runner rsyncs all files to `/synology-monitor/`.
-   - Protected files that must never be overwritten: `synology_data.json`, `synology_monitor.log` (already excluded in `deploy.yml`)
-
-4. **Build and start Docker container** — SSH into NAS or use Container Manager:
-   - Build: `docker build -t synology-monitor-api .` from `/volume1/Synology Monitor/`
-   - Run on port 5051: `docker run -d --name synology-monitor-api --restart unless-stopped -p 5051:5000 -v "/volume1/Synology Monitor:/app" synology-monitor-api`
-
-5. **Schedule monitor script** — In Synology Task Scheduler, create a User-defined script task:
-   - Schedule: every 5 minutes
-   - Command: `python3 "/volume1/Synology Monitor/synology_monitor.py"`
-   - Run as: root (required for `/proc` access)
-
-6. **Install Hubitat driver** — In Hubitat → Drivers Code → New Driver → paste `synology_hubitat_driver.groovy` → Save.
-   - Add Virtual Device → select "Synology NAS Monitor"
-   - Set Flask API Base URL to `http://192.168.10.175:5051`
-   - Optionally adjust warn/critical thresholds (defaults: CPU 50/80%, RAM 70/85%, Disk 70/85%)
-   - Save Preferences — auto-refresh schedule activates immediately
-
-7. **Verify end-to-end** — Confirm the full data pipeline is working:
-   - `GET http://192.168.10.175:5051/synology` returns valid JSON
-   - Click **fetchSynologyData** on Hubitat device page and confirm all attributes populate
-   - Add an **Attribute** tile to a Hubitat dashboard → select Synology NAS Monitor device → attribute `systemSummary`
-   - Confirm colored dots appear and values look correct
+1. **Automatic Hubitat driver deployment** — Investigate options for pushing driver updates to Hubitat automatically on push to `main`, without manual copy/paste.
+   - Hubitat exposes a local HTTP API (`http://<hub-ip>/hub/groovy/...`) that may allow driver code updates
+   - Could be added as a step in `deploy.yml` after the rsync step
+   - Needs research: Hubitat Maker API or direct hub API for driver code updates
 
 ## Done
 
 - **Repo created and seeded** ✅ Done 2026-03-19 — `Synology_Monitor` repo created on GitHub, all files committed from design doc: `synology_monitor.py`, `app.py`, `Dockerfile`, `requirements.txt`, `synology_hubitat_driver.groovy`, `.github/workflows/deploy.yml`, `docs/architecture.md`.
 
-- **Color status dots on dashboard tile** ✅ Done 2026-03-19 — `systemSummary` renders an HTML table with a green/yellow/red dot per metric (CPU, RAM, each volume). Thresholds are configurable driver preferences; defaults are CPU 50/80%, RAM 70/85%, Disk 70/85%.
+- **Color status dots on dashboard tile** ✅ Done 2026-03-19 — `nasSummary` renders emoji status dots (🟢🟡🔴) per metric (CPU, RAM, each volume). Thresholds are configurable driver preferences; defaults are CPU 50/80%, RAM 70/85%, Disk 70/85%.
+
+- **Register self-hosted runner** ✅ Done 2026-03-21 — `github-runner-synology` container running on NAS via `myoung34/github-runner:latest`, registered with label `synology-monitor`. Uses `RUNNER_TOKEN` env var.
+
+- **Create NAS working directory** ✅ Done 2026-03-21 — `/volume1/Synology Monitor/` created via File Station.
+
+- **First deploy** ✅ Done 2026-03-21 — CI deploys all files to `/volume1/Synology Monitor/` on push to `main`. Protected files (`synology_data.json`, `synology_monitor.log`) excluded from rsync.
+
+- **Build and start Docker container** ✅ Done 2026-03-21 — `synology-monitor-api` container running on port 5051, volume-mounted from `/volume1/Synology Monitor`.
+
+- **Schedule monitor script** ✅ Done 2026-03-21 — Task Scheduler runs `python3 "/volume1/Synology Monitor/synology_monitor.py"` every 5 minutes as root.
+
+- **Install Hubitat driver** ✅ Done 2026-03-21 — Driver installed, virtual device created, Flask API URL set to `http://192.168.10.175:5051`. Dashboard tile uses `nasSummary` attribute with `<br>`-separated lines and emoji dots.
+
+- **Verify end-to-end** ✅ Done 2026-03-21 — API returns valid JSON, all attributes populate, `nasSummary` tile displays correctly on Hubitat dashboard.
+
+- **Exclude root filesystem** ✅ Done 2026-03-21 — Removed `/` from storage candidate paths; only `/volume1`, `/volume2`, `/volume3` are reported.
