@@ -139,11 +139,11 @@ private void parseSynologyData(json) {
         def dC = (diskCrit ?: 85) as BigDecimal
 
         def lines = "${dot(cpuVal, cW, cC)} CPU: ${cpuVal}%<br>" +
-                    "${dot(memVal, mW, mC)} RAM: ${memVal}% (${memUsed}/${memTot} MB)<br>"
+                    "${dot(memVal, mW, mC)} RAM: ${memVal}%<br>"
 
         volumes?.each { vol ->
             def pct = (vol.percent ?: 0) as BigDecimal
-            lines += "${dot(pct, dW, dC)} ${vol.path}: ${pct}% (${vol.used_gb}/${vol.total_gb} GB)<br>"
+            lines += "${dot(pct, dW, dC)} ${vol.path}: ${pct}%<br>"
         }
 
         lines += "🕒 ${ts}"
