@@ -2,10 +2,7 @@
 
 ## Open
 
-1. **Automatic Hubitat driver deployment** — Investigate options for pushing driver updates to Hubitat automatically on push to `main`, without manual copy/paste.
-   - Hubitat exposes a local HTTP API (`http://<hub-ip>/hub/groovy/...`) that may allow driver code updates
-   - Could be added as a step in `deploy.yml` after the rsync step
-   - Needs research: Hubitat Maker API or direct hub API for driver code updates
+_(nothing open — all tasks complete)_
 
 ## Done
 
@@ -28,3 +25,5 @@
 - **Verify end-to-end** ✅ Done 2026-03-21 — API returns valid JSON, all attributes populate, `nasSummary` tile displays correctly on Hubitat dashboard.
 
 - **Exclude root filesystem** ✅ Done 2026-03-21 — Removed `/` from storage candidate paths; only `/volume1`, `/volume2`, `/volume3` are reported.
+
+- **Automatic Hubitat driver deployment** ✅ Done 2026-03-21 — `deploy_hubitat.py` logs into the Hubitat hub via its local HTTP API, finds the driver by name, fetches the current version, and pushes updated source. Called automatically from `deploy.yml` after the rsync step on every push to `main`. Hub credentials stored as GitHub repository secrets (`HUBITAT_IP`, `HUBITAT_USER`, `HUBITAT_PASS`). Hub auth is optional — script skips login if the hub allows unauthenticated local access.
