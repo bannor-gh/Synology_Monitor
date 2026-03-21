@@ -1,6 +1,7 @@
 metadata {
     definition(name: "Synology NAS Monitor", namespace: "yourNamespace", author: "Your Name") {
         capability "Refresh"
+        capability "Sensor"
         command "fetchSynologyData"
 
         attribute "cpuPercent",       "number"
