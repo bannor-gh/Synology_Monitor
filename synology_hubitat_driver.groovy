@@ -72,8 +72,7 @@ def fetchSynologyData() {
 }
 
 private String dot(BigDecimal value, BigDecimal warn, BigDecimal crit) {
-    def color = value >= crit ? "#e74c3c" : value >= warn ? "#f39c12" : "#2ecc71"
-    return "<span style=\"color:${color}; font-size:1.2em;\">&#11044;</span>"
+    return value >= crit ? "🔴" : value >= warn ? "🟡" : "🟢"
 }
 
 private void parseSynologyData(json) {

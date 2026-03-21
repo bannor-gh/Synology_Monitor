@@ -126,7 +126,7 @@ def collect_metrics():
     storage = get_storage_info()
 
     data = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
         "cpu": {
             "percent": cpu_percent,
         },
