@@ -19,7 +19,7 @@ metadata {
         attribute "volume2TotalGB",   "number"
         attribute "volume2Percent",   "number"
         attribute "lastUpdate",       "string"
-        attribute "systemSummary",    "string"
+        attribute "nasSummary",    "string"
     }
 }
 
@@ -148,8 +148,8 @@ private void parseSynologyData(json) {
 
         lines += "🕒 ${ts}"
 
-        sendEvent(name: "systemSummary", value: lines)
+        sendEvent(name: "nasSummary", value: lines)
     } catch (e) {
-        log.warn "Failed to build systemSummary: ${e.message}"
+        log.warn "Failed to build nasSummary: ${e.message}"
     }
 }
