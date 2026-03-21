@@ -138,35 +138,15 @@ private void parseSynologyData(json) {
         def dW = (diskWarn ?: 70) as BigDecimal
         def dC = (diskCrit ?: 85) as BigDecimal
 
-        def lines = "<table style=\"border-collapse:collapse; width:100%; font-size:0.9em;\">"
+        def lines = "${dot(cpuVal, cW, cC)} CPU: ${cpuVal}%<br>" +
+                    "${dot(memVal, mW, mC)} RAM: ${memVal}% (${memUsed}/${memTot} MB)<br>"
 
-        // CPU row
-        lines += "<tr>" +
-                 "<td style=\"padding:2px 6px;\">${dot(cpuVal, cW, cC)}</td>" +
-                 "<td style=\"padding:2px 4px;\">CPU</td>" +
-                 "<td style=\"padding:2px 4px; text-align:right;\">${cpuVal}%</td>" +
-                 "</tr>"
-
-        // Memory row
-        lines += "<tr>" +
-                 "<td style=\"padding:2px 6px;\">${dot(memVal, mW, mC)}</td>" +
-                 "<td style=\"padding:2px 4px;\">RAM</td>" +
-                 "<td style=\"padding:2px 4px; text-align:right;\">${memVal}% &nbsp;<span style=\"font-size:0.85em; opacity:0.75;\">${memUsed}/${memTot} MB</span></td>" +
-                 "</tr>"
-
-        // Storage rows
-        volumes?.eachWithIndex { vol, i ->
-            def pct  = (vol.percent ?: 0) as BigDecimal
-            def label = vol.path ?: "vol${i+1}"
-            lines += "<tr>" +
-                     "<td style=\"padding:2px 6px;\">${dot(pct, dW, dC)}</td>" +
-                     "<td style=\"padding:2px 4px;\">${label}</td>" +
-                     "<td style=\"padding:2px 4px; text-align:right;\">${pct}% &nbsp;<span style=\"font-size:0.85em; opacity:0.75;\">${vol.used_gb}/${vol.total_gb} GB</span></td>" +
-                     "</tr>"
+        volumes?.each { vol ->
+            def pct = (vol.percent ?: 0) as BigDecimal
+            lines += "${dot(pct, dW, dC)} ${vol.path}: ${pct}% (${vol.used_gb}/${vol.total_gb} GB)<br>"
         }
 
-        lines += "</table>"
-        lines += "<div style=\"font-size:0.75em; opacity:0.6; margin-top:4px;\">Updated ${ts}</div>"
+        lines += "🕒 ${ts}"
 
         sendEvent(name: "systemSummary", value: lines)
     } catch (e) {
