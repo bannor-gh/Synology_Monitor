@@ -10,7 +10,7 @@ _(nothing open — all tasks complete)_
 
 - **Color status dots on dashboard tile** ✅ Done 2026-03-19 — `nasSummary` renders emoji status dots (🟢🟡🔴) per metric (CPU, RAM, each volume). Thresholds are configurable driver preferences; defaults are CPU 50/80%, RAM 70/85%, Disk 70/85%.
 
-- **Register self-hosted runner** ✅ Done 2026-03-21 — `github-runner-synology` container running on NAS via `myoung34/github-runner:latest`, registered with label `synology-monitor`. Uses `RUNNER_TOKEN` env var.
+- **Register self-hosted runner** ✅ Done 2026-03-21 — `github-runner-synology` container running on NAS via `myoung34/github-runner:latest`, registered with label `synology-monitor`. Updated 2026-03-21 to use `ACCESS_TOKEN` (GitHub PAT) instead of `RUNNER_TOKEN` — runner now auto-registers on NAS restart without manual token renewal.
 
 - **Create NAS working directory** ✅ Done 2026-03-21 — `/volume1/Synology Monitor/` created via File Station.
 

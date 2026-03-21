@@ -506,18 +506,18 @@ Create a new GitHub repo named `Synology_Monitor` and add all files.
 Run on the NAS via Synology Container Manager or SSH:
 
 ```bash
-docker run -d \
+/usr/local/bin/docker run -d \
   --name github-runner-synology \
   --restart unless-stopped \
   -e REPO_URL="https://github.com/bannor-gh/Synology_Monitor" \
+  -e ACCESS_TOKEN="<github-pat-with-repo-scope>" \
   -e RUNNER_NAME="github-runner-synology" \
   -e RUNNER_LABELS="synology-monitor" \
-  -e RUNNER_TOKEN="<registration-token-from-github>" \
   -v "/volume1/Synology Monitor:/synology-monitor" \
   myoung34/github-runner:latest
 ```
 
-Get the registration token from **GitHub repo → Settings → Actions → Runners → New self-hosted runner**.
+**Uses `ACCESS_TOKEN` (GitHub PAT) instead of a one-time `RUNNER_TOKEN`** — the runner re-registers itself automatically on every NAS restart. Create a PAT at GitHub → Settings → Developer Settings → Personal Access Tokens (classic) with `repo` scope. The same PAT is shared across all NAS runners.
 
 ### 3. Add GitHub repository secrets
 
