@@ -18,7 +18,17 @@ import requests
 DRIVER_NAME = "Synology NAS Monitor"
 
 
+def needs_auth(session, base_url):
+    """Return True if the hub redirects to /login without a session."""
+    resp = session.get(f"{base_url}/driver/list/data", allow_redirects=True, timeout=15)
+    return "/login" in resp.url or resp.status_code == 401
+
+
 def login(session, base_url, user, password):
+    if not needs_auth(session, base_url):
+        print("Hub requires no authentication — skipping login.")
+        return
+
     resp = session.post(
         f"{base_url}/login",
         data={"username": user, "password": password, "submit": "Login"},
@@ -26,7 +36,7 @@ def login(session, base_url, user, password):
         timeout=15,
     )
     resp.raise_for_status()
-    # Hubitat redirects to / on success; if we're still on /login it failed
+    # Confirm we're no longer on the login page
     if "/login" in resp.url:
         raise RuntimeError("Hubitat login failed — check HUBITAT_USER / HUBITAT_PASS")
     print("Logged in to Hubitat.")
