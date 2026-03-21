@@ -85,7 +85,7 @@ def get_load_average():
 
 def get_storage_info():
     """Return disk usage for each Synology volume found on the system."""
-    candidate_paths = ["/volume1", "/volume2", "/volume3", "/"]
+    candidate_paths = ["/volume1", "/volume2", "/volume3"]
     volumes = []
     seen_totals = set()
 
