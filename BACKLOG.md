@@ -39,3 +39,5 @@
 - **Repo created and seeded** ✅ Done 2026-03-19 — `Synology_Monitor` repo created on GitHub, all files committed from design doc: `synology_monitor.py`, `app.py`, `Dockerfile`, `requirements.txt`, `synology_hubitat_driver.groovy`, `.github/workflows/deploy.yml`, `docs/architecture.md`.
 
 - **Color status dots on dashboard tile** ✅ Done 2026-03-19 — `systemSummary` renders an HTML table with a green/yellow/red dot per metric (CPU, RAM, each volume). Thresholds are configurable driver preferences; defaults are CPU 50/80%, RAM 70/85%, Disk 70/85%.
+
+- **Docker container health row** ✅ Done 2026-03-21 — `synology_monitor.py` calls `docker ps` to count total and running containers. Driver publishes `containersTotal` / `containersRunning` attributes and adds a single "x of y running" row (with colored dot) to the `systemSummary` tile. Green = all running, yellow = some down, red = all down.

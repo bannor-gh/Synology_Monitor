@@ -17,6 +17,8 @@ metadata {
         attribute "volume2UsedGB",    "number"
         attribute "volume2TotalGB",   "number"
         attribute "volume2Percent",   "number"
+        attribute "containersTotal",   "number"
+        attribute "containersRunning", "number"
         attribute "lastUpdate",       "string"
         attribute "systemSummary",    "string"
     }
@@ -75,6 +77,12 @@ private String dot(BigDecimal value, BigDecimal warn, BigDecimal crit) {
     return "<span style=\"color:${color}; font-size:1.2em;\">&#11044;</span>"
 }
 
+private String dotContainers(Integer running, Integer total) {
+    if (running == null || total == null) return "<span style=\"color:#95a5a6; font-size:1.2em;\">&#11044;</span>"
+    def color = (running == 0) ? "#e74c3c" : (running < total) ? "#f39c12" : "#2ecc71"
+    return "<span style=\"color:${color}; font-size:1.2em;\">&#11044;</span>"
+}
+
 private void parseSynologyData(json) {
     // CPU
     def cpu = json.cpu
@@ -112,6 +120,13 @@ private void parseSynologyData(json) {
         sendEvent(name: "volume2UsedGB",  value: v2.used_gb,  unit: "GB")
         sendEvent(name: "volume2TotalGB", value: v2.total_gb, unit: "GB")
         sendEvent(name: "volume2Percent", value: v2.percent,  unit: "%")
+    }
+
+    // Docker containers
+    def dockerInfo = json.docker
+    if (dockerInfo) {
+        if (dockerInfo.total   != null) sendEvent(name: "containersTotal",   value: dockerInfo.total)
+        if (dockerInfo.running != null) sendEvent(name: "containersRunning", value: dockerInfo.running)
     }
 
     // Timestamp
@@ -164,6 +179,17 @@ private void parseSynologyData(json) {
                      "<td style=\"padding:2px 4px; text-align:right;\">${pct}% &nbsp;<span style=\"font-size:0.85em; opacity:0.75;\">${vol.used_gb}/${vol.total_gb} GB</span></td>" +
                      "</tr>"
         }
+
+        // Containers row
+        def dkr = json.docker
+        def dkrTotal   = dkr?.total   != null ? dkr.total   as Integer : null
+        def dkrRunning = dkr?.running != null ? dkr.running as Integer : null
+        def dkrLabel   = (dkrTotal != null) ? "${dkrRunning} of ${dkrTotal} running" : "unavailable"
+        lines += "<tr>" +
+                 "<td style=\"padding:2px 6px;\">${dotContainers(dkrRunning, dkrTotal)}</td>" +
+                 "<td style=\"padding:2px 4px;\">Containers</td>" +
+                 "<td style=\"padding:2px 4px; text-align:right;\">${dkrLabel}</td>" +
+                 "</tr>"
 
         lines += "</table>"
         lines += "<div style=\"font-size:0.75em; opacity:0.6; margin-top:4px;\">Updated ${ts}</div>"

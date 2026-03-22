@@ -42,6 +42,7 @@ Hubitat Elevation (Rule Machine refresh schedule)
       memoryPercent, memoryUsedMB, memoryTotalMB,
       volume1Path, volume1UsedGB, volume1TotalGB, volume1Percent,
       volume2Path, volume2UsedGB, volume2TotalGB, volume2Percent,
+      containersTotal, containersRunning,
       lastUpdate, systemSummary
 ```
 
@@ -522,7 +523,11 @@ jobs:
       "free_gb": 3.87,
       "percent": 46.8
     }
-  ]
+  ],
+  "docker": {
+    "total": 10,
+    "running": 10
+  }
 }
 ```
 
