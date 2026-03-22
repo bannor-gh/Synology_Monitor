@@ -1,22 +1,25 @@
 # Synology NAS Monitor — Design Document
 
-Standalone project to monitor Synology NAS health (CPU, memory, storage) and
-surface the data as Hubitat device attributes. Mirrors the Generac integration
-pattern: a Python script on the NAS writes JSON → a Dockerized Flask API serves
-it → a Hubitat Groovy driver polls and publishes attributes.
+Standalone project to monitor Synology NAS health and surface the data as
+Hubitat device attributes. Mirrors the Generac integration pattern: a Python
+script on the NAS writes JSON → a Dockerized Flask API serves it → a Hubitat
+Groovy driver polls and publishes attributes.
 
 ---
 
 ## Goals
 
-- Report real-time CPU usage, RAM usage, and per-volume disk usage from the
-  Synology NAS.
+- Report CPU, RAM, swap, network throughput, per-volume disk, Docker container
+  state, RAID health, and drive SMART status from the Synology NAS.
 - Expose the data via a local HTTP API so Hubitat can poll it.
-- Display a `nasSummary` tile on a Hubitat dashboard showing CPU, RAM, and
-  each volume with a green/yellow/red emoji dot and usage percentages.
+- Provide two dashboard tiles from a single driver:
+  - **`nasSummary`** — compact tile: CPU, RAM, disk %, container count with dots.
+  - **`expandedSummary`** — full health tile: all of the above plus swap, network
+    throughput per interface, RAID array status, SMART pass/fail, stopped container
+    names, and system uptime.
 - Expose individual numeric attributes for use in Rule Machine automations.
 - Require no cloud services and no Synology DSM credentials — everything reads
-  directly from the Linux `/proc` filesystem.
+  from `/proc`, the `docker` CLI, `/proc/mdstat`, and `smartctl`.
 - Auto-deploy the Hubitat driver on every push to `main` via the hub's local HTTP API.
 
 ---
@@ -24,10 +27,14 @@ it → a Hubitat Groovy driver polls and publishes attributes.
 ## Architecture
 
 ```
-Synology Task Scheduler (every 5 minutes)
+Synology Task Scheduler (every 5 minutes, runs as root)
   → synology_monitor.py wakes up
-  → Reads /proc/stat (CPU), /proc/meminfo (RAM), /proc/loadavg (load)
-  → Reads os.statvfs(/volume1), os.statvfs(/volume2) (disk — root / excluded)
+  → Shared 1-second sleep: samples /proc/stat (CPU delta) + /proc/net/dev (network delta)
+  → Reads /proc/meminfo (RAM + swap), /proc/loadavg (load), /proc/uptime (uptime)
+  → Reads os.statvfs(/volume1), os.statvfs(/volume2) (disk — /volume* only)
+  → Calls docker ps -a --format to get per-container name + state
+  → Reads /proc/mdstat for RAID array health
+  → Calls smartctl -H /dev/sdX for each drive (SMART pass/fail)
   → Writes synology_data.json
   → Logs to synology_monitor.log (rotating, 3 × 2 MB)
 
@@ -40,11 +47,14 @@ Hubitat Elevation (Rule Machine refresh schedule)
   → synology_hubitat_driver.groovy polls GET /synology
   → Publishes attributes:
       cpuPercent, loadAvg1min, loadAvg5min,
-      memoryPercent, memoryUsedMB, memoryTotalMB,
+      memoryPercent, memoryUsedMB, memoryTotalMB, swapPercent,
+      uptimeDays,
       volume1Path, volume1UsedGB, volume1TotalGB, volume1Percent,
       volume2Path, volume2UsedGB, volume2TotalGB, volume2Percent,
       containersTotal, containersRunning,
-      lastUpdate, nasSummary
+      lastUpdate,
+      nasSummary      ← compact tile (CPU/RAM/disk/containers)
+      expandedSummary ← full health tile (all above + swap/network/RAID/SMART/uptime)
 
 GitHub Actions (push to main)
   → Self-hosted runner (synology-monitor label) on NAS
@@ -619,9 +629,12 @@ The driver auto-deploys on every subsequent push. The first install must be done
 | Runner | New runner (`synology-monitor`) | Allows independent deploy pipelines per project |
 | Refresh granularity | 5 minutes (configurable) | Matches Generac cadence; NAS metrics don't change faster |
 | Root filesystem excluded | Yes | `/` is the DSM OS partition (~2 GB); not meaningful to monitor |
-| Dashboard tile | `nasSummary` Attribute tile | Single tile shows all metrics at a glance with emoji status dots |
+| Dashboard tiles | Two: `nasSummary` (compact) + `expandedSummary` (full) | Compact tile fits existing small dashboard; expanded tile added to a separate full-health dashboard as container/VM count grows |
 | Dot style | Emoji (🟢🟡🔴) | HTML `<span>` tags are stripped by Hubitat dashboard; emoji render reliably |
 | Dot thresholds | Configurable driver preferences | Different environments may have different baselines |
+| Shared 1-second sleep | CPU and network delta share one `time.sleep(1.0)` | Avoids adding a second blocking pause; total script runtime stays ~1 second |
+| Network interfaces | Exclude `lo`, `docker0`, `br-*`, `veth*` | Docker virtual interfaces add noise; physical and bond interfaces are useful |
+| SMART check | `smartctl -H /dev/sdX` per drive | Lightweight overall-health check only; full SMART report not needed for dashboard |
 | Hubitat auto-deploy | `deploy_hubitat.py` via local HTTP API | Eliminates manual copy/paste on every driver change; no cloud dependency |
 | Hub credentials | GitHub repository secrets | Encrypted at rest, never committed, injected at runtime only |
 | Docker container count | `docker ps` via subprocess | No extra libraries; works on any Docker install; graceful fallback if Docker unavailable |
