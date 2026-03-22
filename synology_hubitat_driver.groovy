@@ -152,8 +152,9 @@ private void parseSynologyData(json) {
         def dW = (diskWarn ?: 70) as BigDecimal
         def dC = (diskCrit ?: 85) as BigDecimal
 
-        def lines = "${dot(cpuVal, cW, cC)} CPU: ${cpuVal}%<br>" +
-                    "${dot(memVal, mW, mC)} RAM: ${memVal}%<br>"
+        def lines = "<div style=\"font-size:0.9em;\">"
+        lines += "${dot(cpuVal, cW, cC)} CPU: ${cpuVal}%<br>"
+        lines += "${dot(memVal, mW, mC)} RAM: ${memVal}%<br>"
 
         volumes?.each { vol ->
             def pct = (vol.percent ?: 0) as BigDecimal
@@ -166,7 +167,7 @@ private void parseSynologyData(json) {
         def dkrLabel   = (dkrTotal != null) ? "${dkrRunning} of ${dkrTotal}" : "n/a"
         lines += "${dotContainers(dkrRunning, dkrTotal)} Cntr: ${dkrLabel}<br>"
 
-        lines += "🕒 ${ts}"
+        lines += "🕒 ${ts}</div>"
 
         sendEvent(name: "nasSummary", value: lines)
     } catch (e) {
