@@ -1,6 +1,7 @@
 metadata {
     definition(name: "Synology NAS Monitor", namespace: "yourNamespace", author: "Your Name") {
         capability "Refresh"
+        capability "Sensor"
         command "fetchSynologyData"
 
         attribute "cpuPercent",       "number"
@@ -20,7 +21,7 @@ metadata {
         attribute "containersTotal",   "number"
         attribute "containersRunning", "number"
         attribute "lastUpdate",       "string"
-        attribute "systemSummary",    "string"
+        attribute "nasSummary",    "string"
     }
 }
 
@@ -73,14 +74,12 @@ def fetchSynologyData() {
 }
 
 private String dot(BigDecimal value, BigDecimal warn, BigDecimal crit) {
-    def color = value >= crit ? "#e74c3c" : value >= warn ? "#f39c12" : "#2ecc71"
-    return "<span style=\"color:${color}; font-size:1.2em;\">&#11044;</span>"
+    return value >= crit ? "🔴" : value >= warn ? "🟡" : "🟢"
 }
 
 private String dotContainers(Integer running, Integer total) {
-    if (running == null || total == null) return "<span style=\"color:#95a5a6; font-size:1.2em;\">&#11044;</span>"
-    def color = (running == 0) ? "#e74c3c" : (running < total) ? "#f39c12" : "#2ecc71"
-    return "<span style=\"color:${color}; font-size:1.2em;\">&#11044;</span>"
+    if (running == null || total == null) return "⚪"
+    return (running == 0) ? "🔴" : (running < total) ? "🟡" : "🟢"
 }
 
 private void parseSynologyData(json) {
@@ -153,49 +152,24 @@ private void parseSynologyData(json) {
         def dW = (diskWarn ?: 70) as BigDecimal
         def dC = (diskCrit ?: 85) as BigDecimal
 
-        def lines = "<table style=\"border-collapse:collapse; width:100%; font-size:0.9em;\">"
+        def lines = "${dot(cpuVal, cW, cC)} CPU: ${cpuVal}%<br>" +
+                    "${dot(memVal, mW, mC)} RAM: ${memVal}%<br>"
 
-        // CPU row
-        lines += "<tr>" +
-                 "<td style=\"padding:2px 6px;\">${dot(cpuVal, cW, cC)}</td>" +
-                 "<td style=\"padding:2px 4px;\">CPU</td>" +
-                 "<td style=\"padding:2px 4px; text-align:right;\">${cpuVal}%</td>" +
-                 "</tr>"
-
-        // Memory row
-        lines += "<tr>" +
-                 "<td style=\"padding:2px 6px;\">${dot(memVal, mW, mC)}</td>" +
-                 "<td style=\"padding:2px 4px;\">RAM</td>" +
-                 "<td style=\"padding:2px 4px; text-align:right;\">${memVal}% &nbsp;<span style=\"font-size:0.85em; opacity:0.75;\">${memUsed}/${memTot} MB</span></td>" +
-                 "</tr>"
-
-        // Storage rows
-        volumes?.eachWithIndex { vol, i ->
-            def pct  = (vol.percent ?: 0) as BigDecimal
-            def label = vol.path ?: "vol${i+1}"
-            lines += "<tr>" +
-                     "<td style=\"padding:2px 6px;\">${dot(pct, dW, dC)}</td>" +
-                     "<td style=\"padding:2px 4px;\">${label}</td>" +
-                     "<td style=\"padding:2px 4px; text-align:right;\">${pct}% &nbsp;<span style=\"font-size:0.85em; opacity:0.75;\">${vol.used_gb}/${vol.total_gb} GB</span></td>" +
-                     "</tr>"
+        volumes?.each { vol ->
+            def pct = (vol.percent ?: 0) as BigDecimal
+            lines += "${dot(pct, dW, dC)} ${vol.path}: ${pct}%<br>"
         }
 
-        // Containers row
         def dkr = json.docker
         def dkrTotal   = dkr?.total   != null ? dkr.total   as Integer : null
         def dkrRunning = dkr?.running != null ? dkr.running as Integer : null
         def dkrLabel   = (dkrTotal != null) ? "${dkrRunning} of ${dkrTotal} running" : "unavailable"
-        lines += "<tr>" +
-                 "<td style=\"padding:2px 6px;\">${dotContainers(dkrRunning, dkrTotal)}</td>" +
-                 "<td style=\"padding:2px 4px;\">Containers</td>" +
-                 "<td style=\"padding:2px 4px; text-align:right;\">${dkrLabel}</td>" +
-                 "</tr>"
+        lines += "${dotContainers(dkrRunning, dkrTotal)} Containers: ${dkrLabel}<br>"
 
-        lines += "</table>"
-        lines += "<div style=\"font-size:0.75em; opacity:0.6; margin-top:4px;\">Updated ${ts}</div>"
+        lines += "🕒 ${ts}"
 
-        sendEvent(name: "systemSummary", value: lines)
+        sendEvent(name: "nasSummary", value: lines)
     } catch (e) {
-        log.warn "Failed to build systemSummary: ${e.message}"
+        log.warn "Failed to build nasSummary: ${e.message}"
     }
 }

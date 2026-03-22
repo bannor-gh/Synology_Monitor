@@ -20,3 +20,12 @@ jobs:
                     --exclude='.git/' \
                     $GITHUB_WORKSPACE/ "/synology-monitor/"
           chmod -R 777 "/synology-monitor/" || true
+
+      - name: Deploy driver to Hubitat
+        env:
+          HUBITAT_IP:   ${{ secrets.HUBITAT_IP }}
+          HUBITAT_USER: ${{ secrets.HUBITAT_USER }}
+          HUBITAT_PASS: ${{ secrets.HUBITAT_PASS }}
+        run: |
+          pip3 install requests --quiet
+          python3 /synology-monitor/deploy_hubitat.py /synology-monitor/synology_hubitat_driver.groovy

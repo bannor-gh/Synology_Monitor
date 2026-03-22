@@ -86,7 +86,7 @@ def get_load_average():
 
 def get_storage_info():
     """Return disk usage for each Synology volume found on the system."""
-    candidate_paths = ["/volume1", "/volume2", "/volume3", "/"]
+    candidate_paths = ["/volume1", "/volume2", "/volume3"]
     volumes = []
     seen_totals = set()
 
@@ -147,7 +147,7 @@ def collect_metrics():
     docker = get_docker_info()
 
     data = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
         "cpu": {
             "percent": cpu_percent,
         },
