@@ -102,6 +102,7 @@ Run via Synology Task Scheduler (e.g. every 5 minutes).
 import json
 import time
 import os
+import subprocess
 import logging
 from logging.handlers import RotatingFileHandler
 from datetime import datetime, timezone
@@ -202,6 +203,25 @@ def get_storage_info():
     return volumes
 
 
+def get_docker_info():
+    """Return total and running container counts via the docker CLI."""
+    try:
+        all_result = subprocess.run(
+            ["docker", "ps", "-a", "-q"],
+            capture_output=True, text=True, timeout=10,
+        )
+        running_result = subprocess.run(
+            ["docker", "ps", "-q"],
+            capture_output=True, text=True, timeout=10,
+        )
+        total   = len([l for l in all_result.stdout.strip().splitlines() if l])
+        running = len([l for l in running_result.stdout.strip().splitlines() if l])
+        return {"total": total, "running": running}
+    except Exception as e:
+        log.warning("Could not query Docker: %s", e)
+        return {"total": None, "running": None}
+
+
 def collect_metrics():
     log.info("Collecting Synology metrics...")
 
@@ -209,6 +229,7 @@ def collect_metrics():
     memory = get_memory_info()
     load = get_load_average()
     storage = get_storage_info()
+    docker = get_docker_info()
 
     data = {
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -216,13 +237,15 @@ def collect_metrics():
         "load_average": load,
         "memory": memory,
         "storage": storage,
+        "docker": docker,
     }
 
     with open(OUTPUT_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
-    log.info("Metrics saved — CPU: %s%%, MEM: %s%%, Volumes: %d",
-             cpu_percent, memory["percent"], len(storage))
+    log.info("Metrics saved — CPU: %s%%, MEM: %s%%, Volumes: %d, Containers: %s/%s",
+             cpu_percent, memory["percent"], len(storage),
+             docker.get("running"), docker.get("total"))
     return data
 
 
@@ -601,3 +624,5 @@ The driver auto-deploys on every subsequent push. The first install must be done
 | Dot thresholds | Configurable driver preferences | Different environments may have different baselines |
 | Hubitat auto-deploy | `deploy_hubitat.py` via local HTTP API | Eliminates manual copy/paste on every driver change; no cloud dependency |
 | Hub credentials | GitHub repository secrets | Encrypted at rest, never committed, injected at runtime only |
+| Docker container count | `docker ps` via subprocess | No extra libraries; works on any Docker install; graceful fallback if Docker unavailable |
+| Container "healthy" definition | Running (Up) vs total | Not all containers define a Docker health check; running/total is universal and meaningful |
