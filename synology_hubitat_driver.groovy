@@ -163,8 +163,8 @@ private void parseSynologyData(json) {
         def dkr = json.docker
         def dkrTotal   = dkr?.total   != null ? dkr.total   as Integer : null
         def dkrRunning = dkr?.running != null ? dkr.running as Integer : null
-        def dkrLabel   = (dkrTotal != null) ? "${dkrRunning} of ${dkrTotal} running" : "unavailable"
-        lines += "${dotContainers(dkrRunning, dkrTotal)} Containers: ${dkrLabel}<br>"
+        def dkrLabel   = (dkrTotal != null) ? "${dkrRunning} of ${dkrTotal}" : "n/a"
+        lines += "${dotContainers(dkrRunning, dkrTotal)} Cntr: ${dkrLabel}<br>"
 
         lines += "🕒 ${ts}"
 
